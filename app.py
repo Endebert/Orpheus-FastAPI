@@ -186,7 +186,7 @@ async def create_speech_api(request: SpeechRequest):
         voice=request.voice,
         output_file=output_path,
         use_batching=use_batching,
-        max_batch_chars=10  # Process in ~1000 character chunks (roughly 1 paragraph)
+        max_batch_chars=1000  # Process in ~1000 character chunks (roughly 1 paragraph)
     )
     end = time.time()
     generation_time = round(end - start, 2)
@@ -341,7 +341,7 @@ async def speak(request: Request):
         voice=voice, 
         output_file=output_path,
         use_batching=use_batching,
-        max_batch_chars=10
+        max_batch_chars=1000
     )
     end = time.time()
     generation_time = round(end - start, 2)
