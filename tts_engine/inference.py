@@ -418,12 +418,10 @@ def convert_to_audio(multiframe: List[int], count: int) -> Optional[bytes]:
     return result
 
 async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
-    """Optimized token decoder with early first-chunk processing for lower latency.
-    Fixed to prevent overlapping audio chunks."""
+    """Optimized token decoder with early first-chunk processing for lower latency."""
     buffer = []
     count = 0
     first_chunk_processed = False
-    last_processed_count = 0  # Track last processed position to avoid overlaps
     min_frames_first = 7  # First chunk threshold
     min_frames_subsequent = 28  # Subsequent chunks threshold
     process_every = 7
@@ -448,35 +446,17 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
             
             # Process first chunk as soon as possible
             if not first_chunk_processed and count >= min_frames_first:
-                # Use only the new frames since last processing
-                frames_to_process = buffer[last_processed_count:last_processed_count + min_frames_first]
-                audio_samples = convert_to_audio(frames_to_process, count)
+                audio_samples = convert_to_audio(buffer[-min_frames_first:], count)
                 if audio_samples is not None:
                     first_chunk_processed = True
-                    last_processed_count += min_frames_first
-                    print(f"First chunk: processed frames {last_processed_count - min_frames_first} to {last_processed_count}")
                     yield audio_samples
             # Process subsequent chunks at regular intervals
             elif first_chunk_processed and count % process_every == 0:
-                # Only process new frames since last processing to avoid overlaps
-                new_frames_available = count - last_processed_count
-                if new_frames_available >= min_frames_subsequent:
-                    frames_to_process = buffer[last_processed_count:last_processed_count + min_frames_subsequent]
-                    if count % 28 == 0:  # Diagnostic logging
-                        print(f"Processing frames {last_processed_count} to {last_processed_count + min_frames_subsequent}, total collected: {len(buffer)}")
-                    audio_samples = convert_to_audio(frames_to_process, count)
-                    if audio_samples is not None:
-                        last_processed_count += min_frames_subsequent
-                        yield audio_samples
-    
-    # Process any remaining frames at the end
-    if last_processed_count < len(buffer):
-        remaining_frames = buffer[last_processed_count:]
-        if len(remaining_frames) > 0:
-            print(f"Final chunk: processing remaining {len(remaining_frames)} frames")
-            audio_samples = convert_to_audio(remaining_frames, count)
-            if audio_samples is not None:
-                yield audio_samples
+                if count % 28 == 0:  # Diagnostic logging
+                    print(f"Processing buffer with {min_frames_subsequent} tokens, total collected: {len(buffer)}")
+                audio_samples = convert_to_audio(buffer[-min_frames_subsequent:], count)
+                if audio_samples is not None:
+                    yield audio_samples
 
 def tokens_decoder_sync(syn_token_gen, output_file=None):
     """GPU-accelerated synchronous tokens decoder with CUDA for 10x performance gain."""
