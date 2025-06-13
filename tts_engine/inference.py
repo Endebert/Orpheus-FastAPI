@@ -969,7 +969,7 @@ def generate_speech_from_api(prompt, voice=DEFAULT_VOICE, output_file=None, temp
     
     # Optimize: Async file writing if output file is requested
     if output_file and all_audio_segments:
-        write_audio_to_file_async(all_audio_segments, output_file)
+        write_audio_to_file_async(all_audio_segments, output_file, wait_for_completion=True)
     
     # Report final performance metrics
     end_time = time.time()
@@ -1346,7 +1346,7 @@ def stitch_wav_files_optimized(input_files, output_file, crossfade_ms=50):
         print(f"Error writing output file {output_file}: {e}")
         raise
 
-def write_audio_to_file_async(audio_segments, output_file):
+def write_audio_to_file_async(audio_segments, output_file, wait_for_completion=False):
     """Write audio to file asynchronously to avoid blocking the main thread."""
     thread = threading.Thread(
         target=lambda: stitch_wav_files_optimized(
@@ -1355,6 +1355,11 @@ def write_audio_to_file_async(audio_segments, output_file):
         )
     )
     thread.start()
+    
+    # If synchronous completion is requested, wait for the thread
+    if wait_for_completion:
+        thread.join()
+    
     return thread
 
 def save_segment_to_temp(audio_segment):
