@@ -10,10 +10,15 @@ import argparse
 import threading
 import queue
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional, Generator, Union, Tuple
 from dotenv import load_dotenv
 import aiohttp
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 # Helper to detect if running in Uvicorn's reloader
@@ -408,7 +413,8 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
 def convert_to_audio(multiframe: List[int], count: int) -> Optional[bytes]:
     """Convert token frames to audio with performance monitoring."""
     # Import here to avoid circular imports
-    from .speechpipe import convert_to_audio as orpheus_convert_to_audio
+    from .speechpipe import convert_to_audio_old as orpheus_convert_to_audio
+    print(f"convert_to_audio LOL: {multiframe} ({len(multiframe)}), {count}")
     start_time = time.time()
     result = orpheus_convert_to_audio(multiframe, count)
     
@@ -429,13 +435,17 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
     last_log_time = start_time
     token_count = 0
     
+    print(f"tokens_decoder START: {token_gen}")
+    
     async for token_text in token_gen:
         token = turn_token_into_id(token_text, count)
+
         if token is not None and token > 0:
             buffer.append(token)
             count += 1
             token_count += 1
-            
+            print(f"decoding: ({token_text}, {count}) => {token}; buffer len: {len(buffer)}, token_count: {token_count}, count: {count}")
+
             # Log throughput every 5 seconds
             current_time = time.time()
             if current_time - last_log_time > 5.0:
@@ -444,19 +454,16 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
                     print(f"Token processing rate: {token_count/elapsed:.1f} tokens/second")
                 last_log_time = current_time
             
-            # Process first chunk as soon as possible
-            if not first_chunk_processed and count >= min_frames_first:
-                audio_samples = convert_to_audio(buffer[-min_frames_first:], count)
-                if audio_samples is not None:
-                    first_chunk_processed = True
-                    yield audio_samples
-            # Process subsequent chunks at regular intervals
-            elif first_chunk_processed and count % process_every == 0:
+            if count % process_every == 0 and count >= 28:
                 if count % 28 == 0:  # Diagnostic logging
                     print(f"Processing buffer with {min_frames_subsequent} tokens, total collected: {len(buffer)}")
                 audio_samples = convert_to_audio(buffer[-min_frames_subsequent:], count)
+
                 if audio_samples is not None:
+                    print(f"Generated audio samples: {len(audio_samples)}")
                     yield audio_samples
+                else:
+                    print(f"convert failed? no audio conversion happened. args: ({len(buffer[-min_frames_subsequent:])}, {count})")
 
 def tokens_decoder_sync(syn_token_gen, output_file=None):
     """GPU-accelerated synchronous tokens decoder with CUDA for 10x performance gain."""
