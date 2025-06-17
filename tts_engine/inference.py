@@ -421,10 +421,8 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
     """Optimized token decoder with early first-chunk processing for lower latency."""
     buffer = []
     count = 0
-    first_chunk_processed = False
-    min_frames_first = 7  # First chunk threshold
-    min_frames_subsequent = 28  # Subsequent chunks threshold
     process_every = 7
+    multiframe_size = 28
     start_time = time.time()
     last_log_time = start_time
     token_count = 0
@@ -443,18 +441,11 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
                 if elapsed > 0:
                     print(f"Token processing rate: {token_count/elapsed:.1f} tokens/second")
                 last_log_time = current_time
-            
-            # Process first chunk as soon as possible
-            if not first_chunk_processed and count >= min_frames_first:
-                audio_samples = convert_to_audio(buffer[-min_frames_first:], count)
-                if audio_samples is not None:
-                    first_chunk_processed = True
-                    yield audio_samples
-            # Process subsequent chunks at regular intervals
-            elif first_chunk_processed and count % process_every == 0:
-                if count % 28 == 0:  # Diagnostic logging
-                    print(f"Processing buffer with {min_frames_subsequent} tokens, total collected: {len(buffer)}")
-                audio_samples = convert_to_audio(buffer[-min_frames_subsequent:], count)
+
+            # we need at least 28  tokens to start, then convert each 7 new tokens with a 28 token window
+            if count % process_every == 0 and count >= 28:
+                audio_samples = convert_to_audio(buffer[-multiframe_size:], count)
+
                 if audio_samples is not None:
                     yield audio_samples
 

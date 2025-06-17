@@ -553,76 +553,23 @@ async def stream_speech(
     silence_bytes = bytearray(SILENCE_DURATION_MS * SAMPLE_RATE_BYTES_PER_MS)
     
     async def stream_audio():
-        nonlocal chunk_count, total_bytes
-        
+
         # Send WAV header immediately for client parsing
         wav_header = generate_wav_header(SAMPLE_RATE)
         yield wav_header
-        total_bytes += len(wav_header)
-        
-        # (Optional) 100ms silence padding for jitter tolerance
-        silence = bytearray(SAMPLE_RATE_BYTES_PER_MS * 100)
-        yield silence
-        total_bytes += len(silence)
-        
-        # Pre-allocate buffers for better performance
-        # Buffer set to 2x100ms (~200ms) for higher throughput
-        buffer_size = SAMPLE_RATE_BYTES_PER_MS * 100 * 2
-        audio_buffer = bytearray(buffer_size)
-        buffer_position = 0
-        
+
         try:
             # Stream audio chunks with maximum throughput
             async for chunk in stream_speech_from_api(text, voice):
                 if not chunk:
                     continue
                     
-                chunk_size = len(chunk)
-                chunk_count += 1
-                
-                # Resize buffer if needed
-                if buffer_position + chunk_size > len(audio_buffer):
-                    new_buffer = bytearray(max(len(audio_buffer) * 2, buffer_position + chunk_size))
-                    new_buffer[:buffer_position] = audio_buffer[:buffer_position]
-                    audio_buffer = new_buffer
-                
-                # Add chunk to buffer
-                audio_buffer[buffer_position:buffer_position + chunk_size] = chunk
-                buffer_position += chunk_size
-                
-                # Yield 100ms chunks for higher throughput
-                chunk_bytes = SAMPLE_RATE_BYTES_PER_MS * 100
-                while True:
-                    if buffer_position >= chunk_bytes:
-                        yield bytes(audio_buffer[:chunk_bytes])
-                        total_bytes += chunk_bytes
-                        # Shift leftover
-                        remaining = buffer_position - chunk_bytes
-                        audio_buffer[:remaining] = audio_buffer[chunk_bytes:buffer_position]
-                        buffer_position = remaining
-                    else:
-                        break
-            # Send any remaining audio in buffer, padded
-            if buffer_position > 0:
-                chunk_bytes = SAMPLE_RATE_BYTES_PER_MS * 20
-                pad_len = chunk_bytes - buffer_position
-                yield bytes(audio_buffer[:buffer_position]) + b"\x00" * pad_len
-                total_bytes += chunk_bytes
+                yield bytes(chunk)
                 
         except Exception as e:
             print(f"Error in streaming audio: {e}")
             import traceback
             traceback.print_exc()
-        finally:
-            # Log detailed performance metrics
-            elapsed = time.time() - start_time
-            if elapsed > 0 and chunk_count > 0:
-                chars_per_sec = input_length / elapsed
-                chunks_per_sec = chunk_count / elapsed
-                kb_per_sec = total_bytes / elapsed / 1024
-                
-                print(f"API stream completed: {input_length} chars → {chunk_count} chunks, {total_bytes/1024:.1f}KB")
-                print(f"Performance: {chars_per_sec:.1f} chars/sec, {chunks_per_sec:.1f} chunks/sec, {kb_per_sec:.1f}KB/sec")
     
     # Return StreamingResponse with optimized headers
     return StreamingResponse(
