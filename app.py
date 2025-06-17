@@ -605,10 +605,10 @@ async def stream_speech(
         print(f"[DEBUG API] Sent WAV header: {len(wav_header)} bytes")
         
         # (Optional) 100ms silence padding for jitter tolerance
-        silence = bytearray(SAMPLE_RATE_BYTES_PER_MS * 100)
-        yield silence
-        total_bytes += len(silence)
-        print(f"[DEBUG API] Sent silence padding: {len(silence)} bytes")
+        # silence = bytearray(SAMPLE_RATE_BYTES_PER_MS * 100)
+        # yield bytes(silence)
+        # total_bytes += len(silence)
+        # print(f"[DEBUG API] Sent silence padding: {len(silence)} bytes")
         
         # Pre-allocate buffers for better performance
         # Buffer set to 2x100ms (~200ms) for higher throughput

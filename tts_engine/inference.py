@@ -230,14 +230,35 @@ def format_prompt(prompt: str, voice: str = DEFAULT_VOICE) -> str:
     if voice not in AVAILABLE_VOICES:
         print(f"Warning: Voice '{voice}' not recognized. Using '{DEFAULT_VOICE}' instead.")
         voice = DEFAULT_VOICE
-        
+
     # Format similar to how engine_class.py does it with special tokens
     formatted_prompt = f"{voice}: {prompt}"
-    
+
     # Add special token markers for the Orpheus-FASTAPI
     special_start = "<|audio|>"  # Using the additional_special_token from config
     special_end = "<|eot_id|>"   # Using the eos_token from config
-    
+
+    return f"{special_start}{formatted_prompt}{special_end}"
+
+
+def format_prompt_new(prompt: str, voice: str = DEFAULT_VOICE) -> str:
+    """Format prompt for Orpheus model with voice prefix and special tokens."""
+    # Validate voice and provide fallback
+    if voice not in AVAILABLE_VOICES:
+        print(f"Warning: Voice '{voice}' not recognized. Using '{DEFAULT_VOICE}' instead.")
+        voice = DEFAULT_VOICE
+
+    # Format similar to how engine_class.py does it with special tokens
+    formatted_prompt = f"{voice}: {prompt}"
+
+    # Add special token markers for the Orpheus-FASTAPI
+    special_start = "<custom_token_3>"  # Using the additional_special_token from config
+    special_end = "<|eot_id|>"   # Using the eos_token from config
+
+    # START_TOKEN_ID = 128259
+    # END_TOKEN_IDS = [128009, 128260, 128261, 128257]
+
+    # return [128259,formatted_prompt,128009, 128260, 128261, 128257]
     return f"{special_start}{formatted_prompt}{special_end}"
 
 def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperature: float = TEMPERATURE, 
@@ -262,7 +283,7 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
     """
     
     print(f"[DEBUG TOKEN] Starting token generation for prompt: '{prompt[:50]}...'")
-    print(f"[DEBUG TOKEN] Parameters - voice: {voice}, temp: {temperature}, top_p: {top_p}, max_tokens: {max_tokens}")
+    print(f"[DEBUG TOKEN] Parameters - voice: {voice}, temp: {temperature}, top_p: {top_p}, max_tokens: {max_tokens}, repetition_penalty: {repetition_penalty}")
     
     # Early validation
     if not prompt or not prompt.strip():
@@ -277,16 +298,18 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
     perf_monitor.add_tokens()
     
     # Format the prompt properly for the TTS model
-    formatted_prompt = format_prompt(prompt, voice)
+    formatted_prompt_old = format_prompt(prompt, voice)
+    formatted_prompt = format_prompt_new(prompt, voice)
     print(f"[DEBUG TOKEN] Original prompt: '{prompt}'")
-    print(f"[DEBUG TOKEN] Formatted prompt: '{formatted_prompt}'")
-    
+    print(f"[DEBUG TOKEN] Formatted prompt (old): '{formatted_prompt_old}'")
+    print(f"[DEBUG TOKEN] Formatted prompt (new): '{formatted_prompt}'")
+
     # Optimize the token generation for GPUs with better parameters
     model_name = os.environ.get("ORPHEUS_MODEL_NAME", "Orpheus-3b-FT-Q8_0.gguf")
     
     # Construct the request payload with llama-cpp compatible format
     payload = {
-        "prompt": formatted_prompt,
+        "prompt": formatted_prompt_old,
         "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": top_p,
@@ -307,6 +330,7 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
         "parallel": 8,
         "numa": "numactl",
         "threads_http": 4,
+        "stop": ["<custom_token_2>"]
     }
     
     # Add GPU optimization parameters
@@ -316,14 +340,14 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
             "compute_dtype": "float16",  # Use bfloat16 for improved performance
             "tensor_parallel": 29  # Use all available GPUs
         })
-        
+
         if HIGH_END_GPU:
             # More aggressive optimizations for high-end GPUs
             payload.update({
                 "attention_mask_type": "alibi",  # Faster attention mechanism
                 "batch_size": 8192  # Process more tokens at once
             })
-    
+
     # Import requests at the top level to avoid repeated imports
     import requests
     
@@ -423,12 +447,19 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
                                 if 'text' in choice:
                                     token = choice['text']
                                     if token:
+                                        # skip these tokens: ['<custom_token_4>', '<custom_token_5>', '<custom_token_1>']
+
+                                        # Skip special tokens
+                                        if token in ['<custom_token_4>', '<custom_token_5>', '<custom_token_1>']:
+                                            print(f"[DEBUG TOKEN] Skipping special token: {token}")
+                                            continue
+
                                         token_count += 1
                                         if token_count <= 10:  # Only log first few tokens
                                             print(f"[DEBUG TOKEN] Token {token_count}: '{token[:20]}{'...' if len(token) > 20 else ''}'")
                                         yield token
                                         perf_monitor.add_tokens()
-                                        
+
                         except json.JSONDecodeError as e:
                             # Skip malformed JSON lines
                             if token_count <= 5:  # Only log first few parsing errors
@@ -485,6 +516,7 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
     token_count = 0
     
     async for token_text in token_gen:
+        # print(f"[DEBUG TOKEN] Token in token_gen: {token_text}")
         token = turn_token_into_id(token_text, count)
         if token is not None and token > 0:
             buffer.append(token)
@@ -500,13 +532,14 @@ async def tokens_decoder(token_gen) -> Generator[bytes, None, None]:
                 last_log_time = current_time
             
             # Process first chunk as soon as possible
-            if not first_chunk_processed and count >= min_frames_first:
-                audio_samples = convert_to_audio(buffer[-min_frames_first:], count)
-                if audio_samples is not None:
-                    first_chunk_processed = True
-                    yield audio_samples
-            # Process subsequent chunks at regular intervals
-            elif first_chunk_processed and count % process_every == 0:
+            # if not first_chunk_processed and count >= min_frames_first:
+            #     audio_samples = convert_to_audio(buffer[-min_frames_first:], count)
+            #     if audio_samples is not None:
+            #         first_chunk_processed = True
+            #         yield audio_samples
+            # # Process subsequent chunks at regular intervals
+            # elif first_chunk_processed and count % process_every == 0:
+            if count % process_every == 0:
                 if count % 28 == 0:  # Diagnostic logging
                     print(f"Processing buffer with {min_frames_subsequent} tokens, total collected: {len(buffer)}")
                 audio_samples = convert_to_audio(buffer[-min_frames_subsequent:], count)
