@@ -233,17 +233,40 @@ async def stream_speech_api(request: StreamingSpeechRequest):
         if len(request.input) > 1000:
             from tts_engine.inference import split_text_into_sentences
             sentences = split_text_into_sentences(request.input)
+            print(f"[DEBUG] Split long text into {len(sentences)} sentences")
+            for i, sentence in enumerate(sentences[:3]):  # Only log first 3 to avoid spam
+                print(f"[DEBUG] Sentence {i}: '{sentence[:100]}{'...' if len(sentence) > 100 else ''}'")
+            
             batches, current_batch = [], ""
             for sentence in sentences:
+                # Fix potential duplication issue: ensure we don't create overlapping batches
                 if len(current_batch) + len(sentence) + 1 > 1000 and current_batch:
-                    batches.append(current_batch)
-                    current_batch = sentence
+                    batches.append(current_batch.strip())  # Strip to ensure clean boundaries
+                    print(f"[DEBUG] Created batch {len(batches)}: '{current_batch[:50]}...' ({len(current_batch)} chars)")
+                    current_batch = sentence  # Start fresh with this sentence (no overlap)
                 else:
-                    current_batch = (current_batch + " " + sentence).strip() if current_batch else sentence
+                    # Properly combine sentences with single space separator
+                    if current_batch:
+                        current_batch = current_batch + " " + sentence
+                    else:
+                        current_batch = sentence
+                    
             if current_batch:
-                batches.append(current_batch)
+                batches.append(current_batch.strip())  # Strip to ensure clean boundaries
+                print(f"[DEBUG] Final batch {len(batches)}: '{current_batch[:50]}...' ({len(current_batch)} chars)")
+                
+            # Debug: Check for potential overlaps between batches
+            if len(batches) > 1:
+                for i in range(len(batches) - 1):
+                    batch1_end = batches[i][-20:].strip()  # Last 20 chars of current batch
+                    batch2_start = batches[i + 1][:20].strip()  # First 20 chars of next batch
+                    if batch1_end and batch2_start and batch1_end in batch2_start:
+                        print(f"[DEBUG WARNING] Potential overlap detected between batch {i+1} and {i+2}")
+                        print(f"[DEBUG WARNING] Batch {i+1} ends with: '...{batch1_end}'")
+                        print(f"[DEBUG WARNING] Batch {i+2} starts with: '{batch2_start}...'")
         else:
             batches = [request.input]
+            print(f"[DEBUG] Single batch: '{request.input[:50]}...' ({len(request.input)} chars)")
 
         chunk_duration_ms = 100  # 100ms chunks for larger transfers and reduced overhead
         samples_per_chunk = int(24000 * (chunk_duration_ms / 1000))
@@ -254,31 +277,51 @@ async def stream_speech_api(request: StreamingSpeechRequest):
         wav_header = generate_wav_header(sample_rate=24000, bits_per_sample=16, channels=1)
         yield wav_header
         total_bytes += len(wav_header)
+        print(f"[DEBUG] Sent WAV header: {len(wav_header)} bytes")
 
         try:
             # Always use int16 PCM for WAV
-            for batch in batches:
+            chunks_yielded_total = 0  # Move counter outside the batch loop
+            
+            for batch_idx, batch in enumerate(batches):
+                print(f"[DEBUG] Processing batch {batch_idx + 1}/{len(batches)}: '{batch[:30]}...'")
+                
+                audio_chunks_received = 0
                 async for audio_chunk in stream_speech_from_api(prompt=batch, voice=request.voice, output_format="int16"):
                     if not audio_chunk:
                         continue
+                    
+                    audio_chunks_received += 1
+                    if audio_chunks_received <= 3:  # Only log first few chunks per batch
+                        print(f"[DEBUG] Batch {batch_idx + 1} - Received audio chunk {audio_chunks_received}: {len(audio_chunk)} bytes")
+                    
                     buffer.extend(audio_chunk)
                     # Yield full chunks
                     chunk_bytes = samples_per_chunk * 2
                     while len(buffer) >= chunk_bytes:
                         chunk = bytes(buffer[:chunk_bytes])
                         total_bytes += len(chunk)
+                        chunks_yielded_total += 1
+                        if chunks_yielded_total <= 5:  # Only log first few yields across all batches
+                            print(f"[DEBUG] Batch {batch_idx + 1} - Yielding chunk {chunks_yielded_total}: {len(chunk)} bytes")
                         yield chunk
                         del buffer[:chunk_bytes]
-                        pass
+                
+                print(f"[DEBUG] Batch {batch_idx + 1} complete - received {audio_chunks_received} chunks, buffer has {len(buffer)} bytes remaining")
+                
             # Flush remaining buffer padded to full chunk
             if buffer:
                 chunk_bytes = samples_per_chunk * 2
                 pad_len = chunk_bytes - len(buffer)
                 chunk = bytes(buffer) + b"\x00" * pad_len
                 total_bytes += len(chunk)
+                chunks_yielded_total += 1
+                print(f"[DEBUG] Flushing final buffer: {len(buffer)} bytes + {pad_len} padding = {len(chunk)} bytes (chunk {chunks_yielded_total})")
                 yield chunk
         except Exception as e:
-            print(f"Error in streaming audio: {e}")
+            print(f"[DEBUG] Error in streaming audio: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             # Log performance metrics
             elapsed = time.time() - start_time
@@ -559,11 +602,13 @@ async def stream_speech(
         wav_header = generate_wav_header(SAMPLE_RATE)
         yield wav_header
         total_bytes += len(wav_header)
+        print(f"[DEBUG API] Sent WAV header: {len(wav_header)} bytes")
         
         # (Optional) 100ms silence padding for jitter tolerance
         silence = bytearray(SAMPLE_RATE_BYTES_PER_MS * 100)
         yield silence
         total_bytes += len(silence)
+        print(f"[DEBUG API] Sent silence padding: {len(silence)} bytes")
         
         # Pre-allocate buffers for better performance
         # Buffer set to 2x100ms (~200ms) for higher throughput
@@ -571,20 +616,31 @@ async def stream_speech(
         audio_buffer = bytearray(buffer_size)
         buffer_position = 0
         
+        audio_chunks_received = 0
+        print(f"[DEBUG API] Starting to stream audio for text: '{text[:50]}...'")
+        
         try:
             # Stream audio chunks with maximum throughput
+            chunks_yielded_total = 0  # Move counter outside the chunk processing loop
+            
             async for chunk in stream_speech_from_api(text, voice):
                 if not chunk:
                     continue
                     
                 chunk_size = len(chunk)
                 chunk_count += 1
+                audio_chunks_received += 1
+                
+                if audio_chunks_received <= 5:  # Only log first few chunks
+                    print(f"[DEBUG API] Received audio chunk {audio_chunks_received}: {chunk_size} bytes, buffer at {buffer_position}")
                 
                 # Resize buffer if needed
                 if buffer_position + chunk_size > len(audio_buffer):
                     new_buffer = bytearray(max(len(audio_buffer) * 2, buffer_position + chunk_size))
                     new_buffer[:buffer_position] = audio_buffer[:buffer_position]
                     audio_buffer = new_buffer
+                    if audio_chunks_received <= 5:
+                        print(f"[DEBUG API] Resized buffer to {len(audio_buffer)} bytes")
                 
                 # Add chunk to buffer
                 audio_buffer[buffer_position:buffer_position + chunk_size] = chunk
@@ -594,6 +650,9 @@ async def stream_speech(
                 chunk_bytes = SAMPLE_RATE_BYTES_PER_MS * 100
                 while True:
                     if buffer_position >= chunk_bytes:
+                        chunks_yielded_total += 1
+                        if chunks_yielded_total <= 5:  # Limit logging to first few chunks
+                            print(f"[DEBUG API] Yielding chunk {chunks_yielded_total} of {chunk_bytes} bytes from buffer")
                         yield bytes(audio_buffer[:chunk_bytes])
                         total_bytes += chunk_bytes
                         # Shift leftover
@@ -602,15 +661,20 @@ async def stream_speech(
                         buffer_position = remaining
                     else:
                         break
+                        
+            print(f"[DEBUG API] Finished receiving chunks. Total received: {audio_chunks_received}")
+            
             # Send any remaining audio in buffer, padded
             if buffer_position > 0:
                 chunk_bytes = SAMPLE_RATE_BYTES_PER_MS * 20
                 pad_len = chunk_bytes - buffer_position
+                chunks_yielded_total += 1
+                print(f"[DEBUG API] Flushing final buffer: {buffer_position} bytes + {pad_len} padding (chunk {chunks_yielded_total})")
                 yield bytes(audio_buffer[:buffer_position]) + b"\x00" * pad_len
                 total_bytes += chunk_bytes
                 
         except Exception as e:
-            print(f"Error in streaming audio: {e}")
+            print(f"[DEBUG API] Error in streaming audio: {e}")
             import traceback
             traceback.print_exc()
         finally:
