@@ -235,7 +235,7 @@ def format_prompt(prompt: str, voice: str = DEFAULT_VOICE) -> str:
     formatted_prompt = f"{voice}: {prompt}"
     
     # Add special token markers for the Orpheus-FASTAPI
-    special_start = "<|audio|>"  # Using the additional_special_token from config
+    special_start = "<|audio|>(friendly) "  # Using the additional_special_token from config
     special_end = "<|eot_id|>"   # Using the eos_token from config
     
     return f"{special_start}{formatted_prompt}{special_end}"
