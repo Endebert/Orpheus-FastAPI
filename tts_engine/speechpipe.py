@@ -119,9 +119,9 @@ def convert_to_audio(multiframe, count):
         codes_2[0, i*4 + 3] = multiframe[base_idx + 6]
     
     # Batch validation for range check - much faster than per-element checks
-    if (torch.any(codes_0 < 0) or torch.any(codes_0 > 4096) or
-        torch.any(codes_1 < 0) or torch.any(codes_1 > 4096) or
-        torch.any(codes_2 < 0) or torch.any(codes_2 > 4096)):
+    if (torch.any(codes_0 < 0) or torch.any(codes_0 > 4095) or
+        torch.any(codes_1 < 0) or torch.any(codes_1 > 4095) or
+        torch.any(codes_2 < 0) or torch.any(codes_2 > 4095)):
         elapsed = time.perf_counter() - start_time
         print(f"[convert_to_audio] Range check failed, elapsed={elapsed:.6f}s")
         return None
@@ -139,8 +139,16 @@ def convert_to_audio(multiframe, count):
                     torch.cuda.synchronize()  # Ensure previous operations are complete
                 
                 # Decode the audio
-                with torch.cuda.amp.autocast():
-                    audio_hat = model.decode(codes)
+                try:
+                    with torch.cuda.amp.autocast():
+                        audio_hat = model.decode(codes)
+                except RuntimeError as e:
+                    if "CUDA error" in str(e) or "device-side assert" in str(e):
+                        elapsed = time.perf_counter() - start_time
+                        print(f"[convert_to_audio] CUDA error during decode, elapsed={elapsed:.6f}s: {e}")
+                        return None
+                    else:
+                        raise
                 
                 # Directly slice to the portion we need (no temporary tensors)
                 audio_slice = audio_hat[:, :, 2048:4096]
@@ -163,7 +171,15 @@ def convert_to_audio(multiframe, count):
                     return audio_int16_tensor.numpy().tobytes()
         else:
             # Non-stream version (optimized for CPU)
-            audio_hat = model.decode(codes)
+            try:
+                audio_hat = model.decode(codes)
+            except RuntimeError as e:
+                if "CUDA error" in str(e) or "device-side assert" in str(e):
+                    elapsed = time.perf_counter() - start_time
+                    print(f"[convert_to_audio] CUDA error during decode, elapsed={elapsed:.6f}s: {e}")
+                    return None
+                else:
+                    raise
             audio_slice = audio_hat[:, :, 2048:4096]
             
             # Optimize CPU computation
@@ -216,6 +232,11 @@ def turn_token_into_id(token_string, index):
         return None
     num = int(num_str)
     token_id = num - 10 - (mod * 4096)
+    # Ensure token_id is within valid range for SNAC model (0-4095)
+    if token_id < 0 or token_id > 4095:
+        if len(token_id_cache) < MAX_CACHE_SIZE:
+            token_id_cache[cache_key] = None
+        return None
     if len(token_id_cache) < MAX_CACHE_SIZE:
         token_id_cache[cache_key] = token_id
     return token_id
