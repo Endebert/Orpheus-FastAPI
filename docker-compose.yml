@@ -44,24 +44,40 @@ services:
     env_file:
       - .env
     environment:
-      # CUDA optimization for 16-bit models
-      - CUDA_VISIBLE_DEVICES=0
+#      # CUDA optimization for 16-bit models
+#      - CUDA_VISIBLE_DEVICES=0
+#      - GGML_CUDA_FORCE_CUBLAS=1
+#      - GGML_CUDA_NO_PEER_COPY=0
+#      - LLAMA_CUDA_KQUANTS=0  # Disable k-quants for fp16
+#      # Memory management for larger models
+#      - LLAMA_MMAP=1
+#      - GGML_CUDA_HOST_BUFFER=32768  # Increased for fp16
+#      - GGML_CUDA_SPLIT_TENSORS=1
+#      - GGML_TENSOR_SPLIT_MODE=layer  # Better for fp16
+#      # Performance tuning
+#      - LLAMA_THREADS=${LLAMA_THREADS:-8}
+#      - LLAMA_BATCH_SIZE=${LLAMA_BATCH_SIZE:-32768}
+#      - LLAMA_UBATCH_SIZE=${LLAMA_UBATCH_SIZE:-16384}
+#      - LLAMA_CTX_SIZE=${LLAMA_CTX_SIZE:-49152}
+#      - LLAMA_PARALLEL=${LLAMA_PARALLEL:-4}
+#      - LLAMA_THREADS_HTTP=${LLAMA_THREADS_HTTP:-4}
+      # Force use of cuBLAS for faster matmuls
       - GGML_CUDA_FORCE_CUBLAS=1
-      - GGML_CUDA_NO_PEER_COPY=0
-      - LLAMA_CUDA_KQUANTS=0  # Disable k-quants for fp16
-      # Memory management for larger models
-      - LLAMA_MMAP=1 
-      - GGML_CUDA_HOST_BUFFER=32768  # Increased for fp16
-      - GGML_CUDA_SPLIT_TENSORS=1
-      - GGML_TENSOR_SPLIT_MODE=layer  # Better for fp16
-      # Performance tuning
-      - LLAMA_THREADS=${LLAMA_THREADS:-8}
-      - LLAMA_BATCH_SIZE=${LLAMA_BATCH_SIZE:-32768}
-      - LLAMA_UBATCH_SIZE=${LLAMA_UBATCH_SIZE:-16384}
-      - LLAMA_CTX_SIZE=${LLAMA_CTX_SIZE:-49152}
-      - LLAMA_PARALLEL=${LLAMA_PARALLEL:-4}
-      - LLAMA_THREADS_HTTP=${LLAMA_THREADS_HTTP:-4}
-
+      - CUDA_VISIBLE_DEVICES=0
+      - GGML_CUDA_FORCE_MMQ=1
+      - GGML_CUDA_DMMV_X=1024
+      - GGML_CUDA_MMV_Y=1024
+      - GGML_CUDA_FORCE_F16=1
+      # CUDA tuning
+      - CUDA_VISIBLE_DEVICES=0
+      - GGML_CUDA_PEER_MAX_BATCH_SIZE=8000
+      - LLAMA_CUDA_HOST_BUFFER=16384         # increase host–GPU buffer (MiB)
+      # Memory management
+      - LLAMA_MMAP=1
+      - GGML_CUDA_SPLIT_TENSORS=1  # Add this for more efficient tensor splitting
+      - GGML_TENSOR_SPLIT_MODE=row  # Add this for better tensor distribution
+      - GGML_CUDA_COMPUTE_CAPABILITY=8
+      - GGML_CUDA_NO_FUSED_MLP=0
 
     deploy:
       resources:
