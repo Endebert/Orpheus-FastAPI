@@ -101,24 +101,26 @@ services:
       - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
     command: >
       sh -c '
-      # Extract filename from URL
-      MODEL_FILENAME=$(basename "${ORPHEUS_MODEL_URL}")
+      if [ -f "/app/models/model.gguf" ]; then
+        echo "Model file already exists: model.gguf"
+        exit 0
+      fi
       
-      # Check if model file already exists
-      if [ ! -f "/app/models/model.gguf" ]; then
-        echo "Downloading model file: ${MODEL_FILENAME}..."
-        echo "From URL: ${ORPHEUS_MODEL_URL}"
-        
-        # Download with optional HuggingFace authentication
-        if [ -n "${HUGGINGFACE_TOKEN}" ]; then
-          echo "Using HuggingFace authentication token"
-          wget --header="Authorization: Bearer ${HUGGINGFACE_TOKEN}" -O "/app/models/model.gguf" "${ORPHEUS_MODEL_URL}"
-        else
-          wget -O "/app/models/model.gguf" "${ORPHEUS_MODEL_URL}"
-        fi
-        
+      MODEL_FILENAME=$(basename "${ORPHEUS_MODEL_URL}")
+      echo "Downloading model file: ${MODEL_FILENAME}..."
+      echo "From URL: ${ORPHEUS_MODEL_URL}"
+      
+      if [ -n "${HUGGINGFACE_TOKEN}" ]; then
+        echo "Using HuggingFace authentication token"
+        wget --header="Authorization: Bearer ${HUGGINGFACE_TOKEN}" -O "/app/models/model.gguf" "${ORPHEUS_MODEL_URL}"
+      else
+        wget -O "/app/models/model.gguf" "${ORPHEUS_MODEL_URL}"
+      fi
+      
+      if [ $? -eq 0 ]; then
         echo "Model downloaded successfully as model.gguf"
       else
-        echo "Model file already exists: model.gguf"
+        echo "Failed to download model"
+        exit 1
       fi'
     restart: "no"
