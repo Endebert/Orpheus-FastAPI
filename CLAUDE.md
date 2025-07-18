@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Orpheus-FastAPI Overview
 
-This is a high-performance Text-to-Speech (TTS) server that provides an OpenAI-compatible API for speech synthesis using the Orpheus model. The system converts text to speech with support for 24 different voices across 8 languages and includes emotion tags for expressive audio generation.
+This is a high-performance Text-to-Speech (TTS) server that provides an OpenAI-compatible API for speech synthesis using the Orpheus model. The system converts text to speech with support for 25 different voices across 8 languages and includes emotion tags for expressive audio generation.
 
 ## Development Commands
 
@@ -136,7 +136,7 @@ LLAMA_CTX_SIZE=49152
 ### Available Voices by Language
 - **English**: tara (default), leah, jess, leo, dan, mia, zac, zoe
 - **French**: pierre, amelie, marie
-- **German**: jana, thomas, max
+- **German**: jana, thomas, max, lena
 - **Korean**: 유나, 준서
 - **Hindi**: ऋतिका
 - **Mandarin**: 长乐, 白芷

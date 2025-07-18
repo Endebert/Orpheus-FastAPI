@@ -4,7 +4,7 @@
 
 [![GitHub](https://img.shields.io/github/license/Lex-au/Orpheus-FastAPI)](https://github.com/Lex-au/Orpheus-FastAPI/blob/main/LICENSE.txt)
 
-High-performance Text-to-Speech server with OpenAI-compatible API, multilingual support with 24 voices, emotion tags, and modern web UI. Optimized for RTX GPUs.
+High-performance Text-to-Speech server with OpenAI-compatible API, multilingual support with 25 voices, emotion tags, and modern web UI. Optimized for RTX GPUs.
 
 ## Changelog
 
@@ -12,7 +12,7 @@ High-performance Text-to-Speech server with OpenAI-compatible API, multilingual 
 - 🌐 Added comprehensive multilingual support with 16 new voice actors across 7 languages
 - 🗣️ New voice actors include:
   - French: pierre, amelie, marie
-  - German: jana, thomas, max
+  - German: jana, thomas, max, lena
   - Korean: 유나, 준서
   - Hindi: ऋतिका
   - Mandarin: 长乐, 白芷
@@ -69,7 +69,7 @@ Listen to sample outputs with different voices and emotions:
 - **OpenAI API Compatible**: Drop-in replacement for OpenAI's `/v1/audio/speech` endpoint
 - **Modern Web Interface**: Clean, responsive UI with waveform visualization
 - **High Performance**: Optimized for RTX GPUs with parallel processing
-- **Multilingual Support**: 24 different voices across 8 languages (English, French, German, Korean, Hindi, Mandarin, Spanish, Italian)
+- **Multilingual Support**: 25 different voices across 8 languages (English, French, German, Korean, Hindi, Mandarin, Spanish, Italian)
 - **Emotion Tags**: Support for laughter, sighs, and other emotional expressions
 - **Unlimited Audio Length**: Generate audio of any length through intelligent batching
 - **Smooth Transitions**: Crossfaded audio segments for seamless listening experience
@@ -261,6 +261,7 @@ curl -X POST http://localhost:5005/speak \
 - `jana`: Female, clear
 - `thomas`: Male, authoritative
 - `max`: Male, energetic
+- `lena`: Female, warm
 
 #### Korean
 - `유나`: Female, melodic

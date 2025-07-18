@@ -143,7 +143,7 @@ NUM_WORKERS = 8 if HIGH_END_GPU else 2
 # Define voices by language
 ENGLISH_VOICES = ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
 FRENCH_VOICES = ["pierre", "amelie", "marie"]
-GERMAN_VOICES = ["jana", "thomas", "max"]
+GERMAN_VOICES = ["jana", "thomas", "max", "lena"]
 KOREAN_VOICES = ["유나", "준서"]
 HINDI_VOICES = ["ऋतिका"]
 MANDARIN_VOICES = ["长乐", "白芷"]
