@@ -30,8 +30,6 @@ services:
     depends_on:
       llama-cpp-server:
         condition: service_started
-      model-converter:
-        condition: service_completed_successfully
 
   llama-cpp-server:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
@@ -92,10 +90,6 @@ services:
         soft: -1
         hard: -1
     restart: unless-stopped
-    depends_on:
-      model-converter:
-        condition: service_completed_successfully
-        required: false
     entrypoint: ["/bin/bash", "/app/entrypoint.sh"]  
                        
 
