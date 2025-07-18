@@ -74,9 +74,7 @@ services:
         hard: -1
     restart: unless-stopped
     command: >
-      sh -c 'MODEL_FILENAME=$(basename "${ORPHEUS_MODEL_URL}") &&
-      exec llama-server 
-      -m /models/${MODEL_FILENAME}
+      -m /models/model.gguf
       --host ${LLAMA_ARG_HOST:-0.0.0.0}
       --port ${LLAMA_ARG_PORT:-5006}
       --n-gpu-layers 29                     
@@ -90,7 +88,7 @@ services:
       --flash-attn
       --parallel 8
       --numa numactl
-      --threads-http 2'  
+      --threads-http 2  
                        
 
   model-init:
@@ -107,20 +105,20 @@ services:
       MODEL_FILENAME=$(basename "${ORPHEUS_MODEL_URL}")
       
       # Check if model file already exists
-      if [ ! -f "/app/models/${MODEL_FILENAME}" ]; then
+      if [ ! -f "/app/models/model.gguf" ]; then
         echo "Downloading model file: ${MODEL_FILENAME}..."
         echo "From URL: ${ORPHEUS_MODEL_URL}"
         
         # Download with optional HuggingFace authentication
         if [ -n "${HUGGINGFACE_TOKEN}" ]; then
           echo "Using HuggingFace authentication token"
-          wget --header="Authorization: Bearer ${HUGGINGFACE_TOKEN}" -O "/app/models/${MODEL_FILENAME}" "${ORPHEUS_MODEL_URL}"
+          wget --header="Authorization: Bearer ${HUGGINGFACE_TOKEN}" -O "/app/models/model.gguf" "${ORPHEUS_MODEL_URL}"
         else
-          wget -O "/app/models/${MODEL_FILENAME}" "${ORPHEUS_MODEL_URL}"
+          wget -O "/app/models/model.gguf" "${ORPHEUS_MODEL_URL}"
         fi
         
-        echo "Model downloaded successfully: ${MODEL_FILENAME}"
+        echo "Model downloaded successfully as model.gguf"
       else
-        echo "Model file already exists: ${MODEL_FILENAME}"
+        echo "Model file already exists: model.gguf"
       fi'
     restart: "no"
