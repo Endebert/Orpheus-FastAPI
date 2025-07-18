@@ -30,7 +30,6 @@ fi
 
 # Convert to GGUF
 echo "Converting model to GGUF format..."
-cd /app/llama.cpp
 
 # Determine output type based on MODEL_TYPE
 if [ "${MODEL_TYPE}" = "fp32" ]; then
@@ -39,8 +38,9 @@ else
     OUTTYPE="f16"
 fi
 
-# Run conversion
-python convert_hf_to_gguf.py \
+# Run conversion using the official llama.cpp conversion script
+# The script is in the PATH in the official image
+convert_hf_to_gguf.py \
     "${HF_MODEL_DIR}" \
     --outfile "${GGUF_OUTPUT_FILE}" \
     --outtype "${OUTTYPE}"

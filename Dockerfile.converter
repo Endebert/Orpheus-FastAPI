@@ -1,36 +1,15 @@
 # Dockerfile for model conversion service
 # Converts HuggingFace safetensors models to GGUF format
 
-FROM python:3.11-slim
+# Use official llama.cpp image with all conversion tools
+FROM ghcr.io/ggml-org/llama.cpp:full-cuda
 
-# Install system dependencies
+# Install git-lfs for cloning HuggingFace repos
+USER root
 RUN apt-get update && apt-get install -y \
     git \
     git-lfs \
-    build-essential \
-    cmake \
-    wget \
     && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
-WORKDIR /app
-
-# Clone llama.cpp for conversion tools
-RUN git clone https://github.com/ggerganov/llama.cpp.git /app/llama.cpp
-
-# Build llama.cpp
-WORKDIR /app/llama.cpp
-RUN make -j$(nproc)
-
-# Install Python dependencies for conversion
-RUN pip install --no-cache-dir \
-    numpy \
-    sentencepiece \
-    transformers \
-    protobuf \
-    torch \
-    safetensors \
-    gguf
 
 # Create directories for models
 RUN mkdir -p /models/hf /models/gguf
