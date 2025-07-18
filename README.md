@@ -26,7 +26,7 @@ High-performance Text-to-Speech server with OpenAI-compatible API, multilingual 
   - [Hindi Model](https://huggingface.co/lex-au/Orpheus-3b-Hindi-FT-Q8_0.gguf)
   - [Mandarin Model](https://huggingface.co/lex-au/Orpheus-3b-Chinese-FT-Q8_0.gguf)
   - [German Model](https://huggingface.co/lex-au/Orpheus-3b-German-FT-Q8_0.gguf)
-- 🐳 Docker Compose users: To use a language-specific model, edit the `.env` file before installation and change `ORPHEUS_MODEL_NAME` to match the desired model repo ID (e.g., `Orpheus-3b-French-FT-Q8_0.gguf`)
+- 🐳 Docker Compose users: To use a language-specific model, edit the `.env` file before installation and change `ORPHEUS_MODEL_URL` to the full model URL
 
 **v1.2.0** (2025-04-12)
 - ❤️ Added optional Docker Compose support with GPU-enabled `llama.cpp` server and Orpheus-FastAPI integration  
@@ -112,10 +112,13 @@ cp .env.example .env # Create your .env file from the example
 copy .env.example .env # For Windows CMD
 ```
 
-For multilingual models, edit the `.env` file and change the model name:
+For multilingual models, edit the `.env` file and change the model URL:
 ```
 # Change this line in .env to use a language-specific model
-ORPHEUS_MODEL_NAME=Orpheus-3b-French-FT-Q8_0.gguf  # Example for French
+ORPHEUS_MODEL_URL=https://huggingface.co/lex-au/Orpheus-3b-French-FT-Q8_0.gguf/resolve/main/Orpheus-3b-French-FT-Q8_0.gguf  # Example for French
+
+# For private repositories, add your HuggingFace token:
+HUGGINGFACE_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
 ```
 
 Then start the services:
@@ -382,7 +385,8 @@ Configure in docker compose, if using docker. Not using docker; create a `.env` 
 - `ORPHEUS_SAMPLE_RATE`: Audio sample rate in Hz (default: 24000)
 - `ORPHEUS_PORT`: Web server port (default: 5005)
 - `ORPHEUS_HOST`: Web server host (default: 0.0.0.0)
-- `ORPHEUS_MODEL_NAME`: Model name for inference server
+- `ORPHEUS_MODEL_URL`: Full URL to the GGUF model file (e.g., https://huggingface.co/lex-au/Orpheus-3b-FT-Q8_0.gguf/resolve/main/Orpheus-3b-FT-Q8_0.gguf)
+- `HUGGINGFACE_TOKEN`: (Optional) HuggingFace token for accessing private repositories
 
 The system now supports loading environment variables from a `.env` file in the project root, making it easier to configure without modifying system-wide environment settings. See `.env.example` for a template.
 

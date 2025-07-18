@@ -53,7 +53,9 @@ if torch.cuda.is_available():
             print(f"🖥️ Hardware: High-end CUDA GPU detected")
             print(f"📊 Device: {gpu_name}")
             print(f"📊 VRAM: {gpu_mem_gb:.2f} GB")
-            print(f"🧠 Using model: {os.environ.get('ORPHEUS_MODEL_NAME', '(not set)')}")
+            model_url = os.environ.get('ORPHEUS_MODEL_URL', '(not set)')
+            model_filename = os.path.basename(model_url) if model_url != '(not set)' else '(not set)'
+            print(f"🧠 Using model: {model_filename}")
             print(f"📊 Compute Capability: {compute_capability}")
             print("🚀Using high-performance optimizations")
     else:
@@ -61,7 +63,9 @@ if torch.cuda.is_available():
             print(f"🖥️Hardware: CUDA GPU detected")
             print(f"📊 Device: {gpu_name}")
             print(f"📊 VRAM: {gpu_mem_gb:.2f} GB")
-            print(f"🧠 Using model: {os.environ.get('ORPHEUS_MODEL_NAME', '(not set)')}")
+            model_url = os.environ.get('ORPHEUS_MODEL_URL', '(not set)')
+            model_filename = os.path.basename(model_url) if model_url != '(not set)' else '(not set)'
+            print(f"🧠 Using model: {model_filename}")
             print(f"📊 Compute Capability: {compute_capability}")
             print("🚀Using GPU-optimized settings")
 else:
@@ -248,7 +252,9 @@ def generate_tokens_from_api(prompt: str, voice: str = DEFAULT_VOICE, temperatur
     formatted_prompt = format_prompt(prompt, voice)
     
     # Optimize the token generation for GPUs with better parameters
-    model_name = os.environ.get("ORPHEUS_MODEL_NAME", "Orpheus-3b-FT-Q8_0.gguf")
+    # Extract model filename from URL for the API
+    model_url = os.environ.get("ORPHEUS_MODEL_URL", "")
+    model_name = os.path.basename(model_url) if model_url else "Orpheus-3b-FT-Q8_0.gguf"
     
     # Enhanced payload with performance optimizations
     payload = {

@@ -74,7 +74,9 @@ services:
         hard: -1
     restart: unless-stopped
     command: >
-      -m /models/${ORPHEUS_MODEL_NAME}
+      sh -c 'MODEL_FILENAME=$(basename "${ORPHEUS_MODEL_URL}") &&
+      exec llama-server 
+      -m /models/${MODEL_FILENAME}
       --host ${LLAMA_ARG_HOST:-0.0.0.0}
       --port ${LLAMA_ARG_PORT:-5006}
       --n-gpu-layers 29                     
@@ -88,7 +90,7 @@ services:
       --flash-attn
       --parallel 8
       --numa numactl
-      --threads-http 2  
+      --threads-http 2'  
                        
 
   model-init:
@@ -97,12 +99,28 @@ services:
     volumes:
       - ./models:/app/models
     working_dir: /app
+    environment:
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
     command: >
       sh -c '
-      if [ ! -f /app/models/${ORPHEUS_MODEL_NAME} ]; then
-        echo "Downloading model file..."
-        wget -P /app/models https://huggingface.co/lex-au/${ORPHEUS_MODEL_NAME}/resolve/main/${ORPHEUS_MODEL_NAME}
+      # Extract filename from URL
+      MODEL_FILENAME=$(basename "${ORPHEUS_MODEL_URL}")
+      
+      # Check if model file already exists
+      if [ ! -f "/app/models/${MODEL_FILENAME}" ]; then
+        echo "Downloading model file: ${MODEL_FILENAME}..."
+        echo "From URL: ${ORPHEUS_MODEL_URL}"
+        
+        # Download with optional HuggingFace authentication
+        if [ -n "${HUGGINGFACE_TOKEN}" ]; then
+          echo "Using HuggingFace authentication token"
+          wget --header="Authorization: Bearer ${HUGGINGFACE_TOKEN}" -O "/app/models/${MODEL_FILENAME}" "${ORPHEUS_MODEL_URL}"
+        else
+          wget -O "/app/models/${MODEL_FILENAME}" "${ORPHEUS_MODEL_URL}"
+        fi
+        
+        echo "Model downloaded successfully: ${MODEL_FILENAME}"
       else
-        echo "Model file already exists"
+        echo "Model file already exists: ${MODEL_FILENAME}"
       fi'
     restart: "no"
