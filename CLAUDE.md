@@ -102,8 +102,14 @@ The system requires a separate LLM inference server running the Orpheus model:
 # Required
 ORPHEUS_API_URL=http://localhost:5006/v1/completions  # LLM inference server URL
 
-# Model Configuration
+# Model Configuration - Option 1: Pre-converted GGUF
 ORPHEUS_MODEL_NAME=Orpheus-3b-FT-Q8_0.gguf
+
+# Model Configuration - Option 2: HuggingFace safetensors (new)
+ORPHEUS_HF_REPO=dr-flex/orpheus-lena  # HF repo with safetensors
+ORPHEUS_MODEL_TYPE=fp16                # fp16 or fp32
+
+# Generation Parameters
 ORPHEUS_MAX_TOKENS=8192
 ORPHEUS_TEMPERATURE=0.6
 ORPHEUS_TOP_P=0.9
@@ -113,6 +119,11 @@ ORPHEUS_HOST=0.0.0.0
 ORPHEUS_PORT=5005
 ORPHEUS_API_TIMEOUT=120
 ORPHEUS_SAMPLE_RATE=24000
+
+# Performance Tuning (for 16-bit models)
+LLAMA_THREADS=8
+LLAMA_BATCH_SIZE=32768
+LLAMA_CTX_SIZE=49152
 ```
 
 ### Multilingual Support

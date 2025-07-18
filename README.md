@@ -125,6 +125,25 @@ docker compose up --build
 
 The system will automatically download the specified model from Hugging Face before starting the service.
 
+#### Using HuggingFace Safetensors Models (New)
+
+You can now use full 16-bit models directly from HuggingFace repositories containing safetensors files:
+
+```bash
+# Edit .env to use a HuggingFace repository
+ORPHEUS_HF_REPO=dr-flex/orpheus-lena  # HuggingFace repo with safetensors
+ORPHEUS_MODEL_TYPE=fp16               # Model precision (fp16 or fp32)
+
+# Start with HuggingFace model conversion
+docker compose -f docker-compose.yml -f docker-compose.hf.yml up --build
+```
+
+The system will:
+1. Clone the HuggingFace repository with git-lfs
+2. Convert safetensors to GGUF format using llama.cpp tools
+3. Cache the converted model for future runs
+4. Start the server with optimized settings for 16-bit models
+
 ### FastAPI Service Native Installation
 
 1. Clone the repository:

@@ -1,0 +1,14 @@
+# Docker Compose override for HuggingFace model conversion
+# Usage: docker compose -f docker-compose.yml -f docker-compose.hf.yml up
+
+version: "3.9"
+
+services:
+  model-converter:
+    profiles: []  # Remove profile to always run
+
+  llama-cpp-server:
+    depends_on:
+      model-converter:
+        condition: service_completed_successfully
+        required: true
